@@ -1,139 +1,33 @@
 const express = require('express');
-
 const dotenv = require('dotenv');
-
-// Load config
 
 dotenv.config();
 
+const productRoutes = require('./routes/products');
+const requestLogger = require('./middleware/logger');
+
 const app = express();
-
 const port = process.env.PORT || 3001;
+const serviceName = process.env.SERVICE_NAME || 'product-service';
 
-// Middleware to parse JSON bodies
-
+// 1. Middleware
 app.use(express.json());
+app.use(requestLogger);
 
-let products = [
-{ id: 1, name: 'Laptop', price: 999.99, category: 'Electronics' },
-{ id: 2, name: 'Coffee Maker', price: 49.99, category: 'Home' }
-];
+// 2. Routes
+app.use('/api/products', productRoutes);
 
-// API Key Middleware
-
-const checkApiKey = (req, res, next) => {
-
-const apiKey = req.headers['x-api-key'];
-
-if (apiKey !== process.env.API_SECRET) {
-
-return res.status(403).json({ message: 'Forbidden: Invalid API Key'
-
+// 3. 404 Handler (unmatched routes)
+app.use((req, res) => {
+  res.status(404).json({ message: 'Not Found' });
 });
 
-}
-
-next();
-
-};
-
-// Apply protection ONLY to the POST route (GET is public)
-
-app.post('/api/products', checkApiKey, (req, res) => {
-
-// ... (The rest of your POST code remains the same)
-
-});
-
-// GET all products
-
-app.get('/api/products', (req, res) => {
-
-res.json(products);
-
-});
-
-// GET a single product by ID
-
-app.get('/api/products/:id', (req, res) => {
-
-const productId = parseInt(req.params.id);
-
-const product = products.find(p => p.id === productId);
-
-if (!product) {
-
-return res.status(404).json({ message: 'Product not found' });
-
-}
-
-res.json(product);
-
-});
-
-// Health Check
-app.get('/health', (req, res) => {
-
-res.status(200).json({ status: 'UP', service:
-
-process.env.SERVICE_NAME });
-
-});
-
-// POST create a new product
-
-app.post('/api/products', (req, res) => {
-
-const { name, price, category } = req.body;
-
-// Input Validation
-
-if (!name || !price) {
-
-return res.status(400).json({
-
-error: 'Bad Request',
-
-message: 'Name and Price are required fields.'
-
-});
-
-}
-
-if (typeof price !== 'number' || price <= 0) {
-
-return res.status(400).json({
-
-error: 'Bad Request',
-
-message: 'Price must be a positive number.'
-
-});
-
-}
-
-const newProduct = {
-
-id: products.length + 1,
-
-name,
-
-price,
-
-category: category || 'Uncategorized'
-
-};
-
-products.push(newProduct);
-
-res.status(201).json(newProduct);
-
+// 4. Error Handling (must be after routes)
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Internal Server Error' });
 });
 
 app.listen(port, () => {
-
-console.log(`${process.env.SERVICE_NAME} running on
-
-http://localhost:${port}`);
-
+  console.log(`${serviceName} running on http://localhost:${port}`);
 });
